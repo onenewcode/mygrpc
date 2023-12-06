@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"io"
 	"log"
 	"time"
 
@@ -40,22 +41,20 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	// 调用指定方法
-	updateStream, err := c.UpdateOrders(ctx)
+	searchStream, _ := c.SearchOrders(ctx, &pb.HelloRequest{Name: "开始服务端rpc流测试"})
+	for {
+		// 客户端 Recv 方法接收服务端发送的流
+		searchOrder, err := searchStream.Recv()
+		if err == io.EOF {
+			log.Print("EOF")
+			break
+		}
+		if err == nil {
+			log.Print("Search Result : ", searchOrder)
+		}
+	}
 	if err != nil {
-		log.Fatalf("%v.UpdateOrders(_) = _, %v", c, err)
+		log.Fatalf("could not greet: %v", err)
 	}
-	// Updating order 1
-	if err := updateStream.Send(&pb.HelloRequest{Name: "1"}); err != nil {
-		log.Fatalf("%v.Send(%v) = %v", updateStream, &pb.HelloRequest{Name: "1"}, err)
-	}
-	// Updating order 2
-	if err := updateStream.Send(&pb.HelloRequest{Name: "2"}); err != nil {
-		log.Fatalf("%v.Send(%v) = %v", updateStream, &pb.HelloRequest{Name: "2"}, err)
-	}
-	// 发送关闭信号并接收服务端响应
-	err = updateStream.CloseSend()
-	if err != nil {
-		log.Fatalf("%v.CloseAndRecv() got error %v, want %v", updateStream, err, nil)
-	}
-	log.Printf("客户端流传输结束")
+	log.Printf("服务端流传输结束")
 }

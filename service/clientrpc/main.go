@@ -5,13 +5,14 @@ import (
 	"flag"
 	"fmt"
 	"google.golang.org/grpc"
+	"io"
 	"log"
 	pb "mygrpc/proto/hello"
 	"net"
 )
 
 var (
-	port = flag.Int("port", 50051, "The server port")
+	port = flag.Int("port", 50051, "The service port")
 )
 
 type server struct {
@@ -35,6 +36,23 @@ func (s *server) SearchOrders(req *pb.HelloRequest, stream pb.Greeter_SearchOrde
 	}
 	return nil
 }
+func (s *server) UpdateOrders(stream pb.Greeter_UpdateOrdersServer) error {
+
+	for {
+		log.Println("开始接受客户端的流")
+		// Recv 对客户端发来的请求接收
+		order, err := stream.Recv()
+		if err == io.EOF {
+			// 流结束，关闭并发送响应给客户端
+			return stream.Send(&pb.HelloReply{Message: "接受客户流结束"})
+		}
+		if err != nil {
+			return err
+		}
+		// 更新数据
+		log.Printf("Order ID : %s - %s", order.GetName(), "Updated")
+	}
+}
 func main() {
 	flag.Parse()
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
@@ -45,7 +63,7 @@ func main() {
 	s := grpc.NewServer()
 	// 注册服务
 	pb.RegisterGreeterServer(s, &server{})
-	log.Printf("server listening at %v", lis.Addr())
+	log.Printf("service listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
