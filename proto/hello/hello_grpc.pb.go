@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Greeter_SayHello_FullMethodName = "/hello.Greeter/SayHello"
+	Greeter_SayHello_FullMethodName     = "/hello.Greeter/SayHello"
+	Greeter_SearchOrders_FullMethodName = "/hello.Greeter/searchOrders"
 )
 
 // GreeterClient is the client API for Greeter service.
@@ -28,6 +29,8 @@ const (
 type GreeterClient interface {
 	// 设置方法
 	SayHello(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (*HelloReply, error)
+	// 设置服务流rpc
+	SearchOrders(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (Greeter_SearchOrdersClient, error)
 }
 
 type greeterClient struct {
@@ -47,12 +50,46 @@ func (c *greeterClient) SayHello(ctx context.Context, in *HelloRequest, opts ...
 	return out, nil
 }
 
+func (c *greeterClient) SearchOrders(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (Greeter_SearchOrdersClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Greeter_ServiceDesc.Streams[0], Greeter_SearchOrders_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &greeterSearchOrdersClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Greeter_SearchOrdersClient interface {
+	Recv() (*HelloReply, error)
+	grpc.ClientStream
+}
+
+type greeterSearchOrdersClient struct {
+	grpc.ClientStream
+}
+
+func (x *greeterSearchOrdersClient) Recv() (*HelloReply, error) {
+	m := new(HelloReply)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // GreeterServer is the server API for Greeter service.
 // All implementations must embed UnimplementedGreeterServer
 // for forward compatibility
 type GreeterServer interface {
 	// 设置方法
 	SayHello(context.Context, *HelloRequest) (*HelloReply, error)
+	// 设置服务流rpc
+	SearchOrders(*HelloRequest, Greeter_SearchOrdersServer) error
 	mustEmbedUnimplementedGreeterServer()
 }
 
@@ -62,6 +99,9 @@ type UnimplementedGreeterServer struct {
 
 func (UnimplementedGreeterServer) SayHello(context.Context, *HelloRequest) (*HelloReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SayHello not implemented")
+}
+func (UnimplementedGreeterServer) SearchOrders(*HelloRequest, Greeter_SearchOrdersServer) error {
+	return status.Errorf(codes.Unimplemented, "method SearchOrders not implemented")
 }
 func (UnimplementedGreeterServer) mustEmbedUnimplementedGreeterServer() {}
 
@@ -94,6 +134,27 @@ func _Greeter_SayHello_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Greeter_SearchOrders_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(HelloRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(GreeterServer).SearchOrders(m, &greeterSearchOrdersServer{stream})
+}
+
+type Greeter_SearchOrdersServer interface {
+	Send(*HelloReply) error
+	grpc.ServerStream
+}
+
+type greeterSearchOrdersServer struct {
+	grpc.ServerStream
+}
+
+func (x *greeterSearchOrdersServer) Send(m *HelloReply) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // Greeter_ServiceDesc is the grpc.ServiceDesc for Greeter service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -106,6 +167,12 @@ var Greeter_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Greeter_SayHello_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "searchOrders",
+			Handler:       _Greeter_SearchOrders_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "proto/hello/hello.proto",
 }

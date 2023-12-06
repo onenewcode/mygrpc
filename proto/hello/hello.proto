@@ -10,6 +10,8 @@ option go_package = "./proto/hello";
 service Greeter {
   // 设置方法
   rpc SayHello (HelloRequest) returns (HelloReply) {}
+  // 设置服务流rpc
+  rpc searchOrders(HelloRequest) returns (stream HelloReply);
 }
 
 // 请求信息用户名.
