@@ -1,20 +1,23 @@
 syntax = "proto3";
 package hello;
 // 第一个分割参数，输出路径；第二个设置生成类的包路径
-option go_package="../protocol;protocol";
-// 服务接口设置
-service ProductInfo {
-  rpc addProduct(Product) returns (ProductID);
-  rpc getProduct(ProductID) returns (Product);
-}
-// 结构体设置
-message Product {
-  string id = 1;
-  string name = 2;
-  string description = 3;
-  float price = 4;
+
+option go_package = "./proto/hello";
+
+
+
+// 设置服务名称
+service Greeter {
+  // 设置方法
+  rpc SayHello (HelloRequest) returns (HelloReply) {}
 }
 
-message ProductID {
-  string value = 1;
+// 请求信息用户名.
+message HelloRequest {
+  string name = 1;
+}
+
+// 响应信息
+message HelloReply {
+  string message = 1;
 }

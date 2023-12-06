@@ -1,53 +1,43 @@
-package hello
+package main
 
 import (
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"context"
+	"flag"
 	"log"
-	"net"
+	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	pb "mygrpc/proto/hello" // 引入编译生成的包
 )
 
-// server is used to implement ecommerce/product_info.
-type server struct {
-	productMap map[string]*pb.Product
-}
+const (
+	defaultName = "world"
+)
 
-// AddProduct implements ecommerce.AddProduct
-func (s *server) AddProduct(ctx context.Context,
-	in *pb.Product) (*pb.ProductID, error) {
-	out, err := uuid.NewV4()
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "Error while generating Product ID", err)
-	}
-	in.Id = out.String()
-	if s.productMap == nil {
-		s.productMap = make(map[string]*pb.Product)
-	}
-	s.productMap[in.Id] = in
-	log.Printf("Product %v : %v - Added.", in.Id, in.Name)
-	return &pb.ProductID{Value: in.Id}, status.New(codes.OK, "").Err()
-}
-
-// GetProduct implements ecommerce.GetProduct
-func (s *server) GetProduct(ctx context.Context, in *pb.ProductID) (*pb.Product, error) {
-	product, exists := s.productMap[in.Value]
-	if exists && product != nil {
-		log.Printf("Product %v : %v - Retrieved.", product.Id, product.Name)
-		return product, status.New(codes.OK, "").Err()
-	}
-	return nil, status.Errorf(codes.NotFound, "Product does not exist.", in.Value)
-}
+var (
+	addr = flag.String("addr", "localhost:50051", "the address to connect to")
+	name = flag.String("name", defaultName, "Name to greet")
+)
 
 func main() {
-	lis, err := net.Listen("tcp", port)
+	flag.Parse()
+	// 与服务建立连接.
+	conn, err := grpc.Dial(*addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("did not connect: %v", err)
 	}
-	s := grpc.NewServer()
-	pb.RegisterProductInfoServer(s, &server{})
-	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+	defer conn.Close()
+	// 创建指定服务的客户端
+	c := pb.NewGreeterClient(conn)
+
+	// 连接服务器并打印出其响应。
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	// 调用指定方法
+	r, err := c.SayHello(ctx, &pb.HelloRequest{Name: *name})
+	if err != nil {
+		log.Fatalf("could not greet: %v", err)
 	}
+	log.Printf("Greeting: %s", r.GetMessage())
 }
