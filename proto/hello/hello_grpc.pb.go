@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	Greeter_SayHello_FullMethodName     = "/hello.Greeter/SayHello"
-	Greeter_SearchOrders_FullMethodName = "/hello.Greeter/searchOrders"
-	Greeter_UpdateOrders_FullMethodName = "/hello.Greeter/updateOrders"
+	Greeter_SayHello_FullMethodName      = "/hello.Greeter/SayHello"
+	Greeter_SearchOrders_FullMethodName  = "/hello.Greeter/searchOrders"
+	Greeter_UpdateOrders_FullMethodName  = "/hello.Greeter/updateOrders"
+	Greeter_ProcessOrders_FullMethodName = "/hello.Greeter/processOrders"
 )
 
 // GreeterClient is the client API for Greeter service.
@@ -34,6 +35,8 @@ type GreeterClient interface {
 	SearchOrders(ctx context.Context, in *HelloRequest, opts ...grpc.CallOption) (Greeter_SearchOrdersClient, error)
 	// 设置客户流rpc
 	UpdateOrders(ctx context.Context, opts ...grpc.CallOption) (Greeter_UpdateOrdersClient, error)
+	// 设置双工rpc
+	ProcessOrders(ctx context.Context, opts ...grpc.CallOption) (Greeter_ProcessOrdersClient, error)
 }
 
 type greeterClient struct {
@@ -116,6 +119,37 @@ func (x *greeterUpdateOrdersClient) Recv() (*HelloReply, error) {
 	return m, nil
 }
 
+func (c *greeterClient) ProcessOrders(ctx context.Context, opts ...grpc.CallOption) (Greeter_ProcessOrdersClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Greeter_ServiceDesc.Streams[2], Greeter_ProcessOrders_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &greeterProcessOrdersClient{stream}
+	return x, nil
+}
+
+type Greeter_ProcessOrdersClient interface {
+	Send(*HelloRequest) error
+	Recv() (*HelloReply, error)
+	grpc.ClientStream
+}
+
+type greeterProcessOrdersClient struct {
+	grpc.ClientStream
+}
+
+func (x *greeterProcessOrdersClient) Send(m *HelloRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *greeterProcessOrdersClient) Recv() (*HelloReply, error) {
+	m := new(HelloReply)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // GreeterServer is the server API for Greeter service.
 // All implementations must embed UnimplementedGreeterServer
 // for forward compatibility
@@ -126,6 +160,8 @@ type GreeterServer interface {
 	SearchOrders(*HelloRequest, Greeter_SearchOrdersServer) error
 	// 设置客户流rpc
 	UpdateOrders(Greeter_UpdateOrdersServer) error
+	// 设置双工rpc
+	ProcessOrders(Greeter_ProcessOrdersServer) error
 	mustEmbedUnimplementedGreeterServer()
 }
 
@@ -141,6 +177,9 @@ func (UnimplementedGreeterServer) SearchOrders(*HelloRequest, Greeter_SearchOrde
 }
 func (UnimplementedGreeterServer) UpdateOrders(Greeter_UpdateOrdersServer) error {
 	return status.Errorf(codes.Unimplemented, "method UpdateOrders not implemented")
+}
+func (UnimplementedGreeterServer) ProcessOrders(Greeter_ProcessOrdersServer) error {
+	return status.Errorf(codes.Unimplemented, "method ProcessOrders not implemented")
 }
 func (UnimplementedGreeterServer) mustEmbedUnimplementedGreeterServer() {}
 
@@ -220,6 +259,32 @@ func (x *greeterUpdateOrdersServer) Recv() (*HelloRequest, error) {
 	return m, nil
 }
 
+func _Greeter_ProcessOrders_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(GreeterServer).ProcessOrders(&greeterProcessOrdersServer{stream})
+}
+
+type Greeter_ProcessOrdersServer interface {
+	Send(*HelloReply) error
+	Recv() (*HelloRequest, error)
+	grpc.ServerStream
+}
+
+type greeterProcessOrdersServer struct {
+	grpc.ServerStream
+}
+
+func (x *greeterProcessOrdersServer) Send(m *HelloReply) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *greeterProcessOrdersServer) Recv() (*HelloRequest, error) {
+	m := new(HelloRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // Greeter_ServiceDesc is the grpc.ServiceDesc for Greeter service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -241,6 +306,12 @@ var Greeter_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "updateOrders",
 			Handler:       _Greeter_UpdateOrders_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "processOrders",
+			Handler:       _Greeter_ProcessOrders_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},
